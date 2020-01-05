@@ -1,0 +1,17 @@
+version: '3'
+volumes:
+  postgres_data: {}
+services:
+  app:
+    image: AZURE-CONTAINER-REGISTRY-NAME.azurecr.io/AZURE-CONTAINER-REGISTRY-REPOSITORY-NAME:##BUILD##
+    restart: always
+    environment: 
+      RAILS_SERVE_STATIC_FILES: 'true'
+      COMPOSE_PROJECT_NAME: 'PROJECT-PREFIX'
+    depends_on:
+      - db
+  db:
+    restart: always
+    image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data

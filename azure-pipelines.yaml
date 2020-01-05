@@ -1,0 +1,51 @@
+stages:
+  - stage: Build_docker_containers
+    jobs:
+    - job: Build
+      pool:
+        vmImage: 'Ubuntu-16.04'
+      continueOnError: true
+      steps:
+      - task: Docker@2
+        inputs:
+          containerRegistry: 'AZURE-CONTAINER-REGISTRY-NAME'
+          repository: 'AZURE-CONTAINER-REGISTRY-REPOSITORY-NAME'
+          command: 'buildAndPush'
+          Dockerfile: '**/Dockerfile'
+      - task: PublishPipelineArtifact@1
+        inputs:
+          targetPath: '$(Pipeline.Workspace)'
+          artifact: 'docker-compose'
+          publishLocation: 'pipeline'
+  
+  - stage: 'Deploy_to_production'
+    jobs:
+    - deployment: Production
+      pool:
+        vmImage: 'Ubuntu-16.04'
+      environment: 'Production'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: CopyFilesOverSSH@0
+              inputs:
+                sshEndpoint: 'SSH-END-POINT-NAME-FROM-SERVICE-CONNECTIONS'
+                sourceFolder: '$(Pipeline.Workspace)/docker-compose/s/'
+                contents: |
+                  docker-compose.yaml
+                  .env
+                targetFolder: 'TARGET-PATH'
+            - task: SSH@0
+              inputs:
+                sshEndpoint: 'SSH-END-POINT-NAME-FROM-SERVICE-CONNECTIONS'
+                runOptions: 'inline'
+                inline: |
+                  sed -i 's/##BUILD##/$(Build.BuildId)/g' docker-compose.yaml
+            - task: SSH@0
+              inputs:
+                sshEndpoint: 'SSH-END-POINT-NAME-FROM-SERVICE-CONNECTIONS'
+                runOptions: 'inline'
+                inline: |
+                  docker-compose up -d 2> docker-compose.log
+                  cat docker-compose.log
